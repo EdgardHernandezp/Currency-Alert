@@ -6,18 +6,22 @@ import com.amazonaws.services.lambda.runtime.LambdaLogger;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.simpleemail.AmazonSimpleEmailService;
 import com.amazonaws.services.simpleemail.AmazonSimpleEmailServiceClientBuilder;
+import com.amazonaws.services.simpleemail.model.AmazonSimpleEmailServiceException;
 import com.amazonaws.services.simpleemail.model.Body;
 import com.amazonaws.services.simpleemail.model.Content;
 import com.amazonaws.services.simpleemail.model.Destination;
 import com.amazonaws.services.simpleemail.model.Message;
 import com.amazonaws.services.simpleemail.model.SendEmailRequest;
 import com.amazonaws.services.simpleemail.model.SendEmailResult;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.Map;
 
 public class Handler implements RequestHandler<Map<String, Object>, String> {
@@ -27,7 +31,6 @@ public class Handler implements RequestHandler<Map<String, Object>, String> {
   private static final String HTML_EMAIL_BODY =
           "<h1>Amazon SES test (AWS SDK for Java)</h1>" + "<p>This email was sent with <a href='https://aws.amazon.com/ses/'>"
                   + "Amazon SES</a> using the <a href='https://aws.amazon.com/sdk-for-java/'>" + "AWS SDK for Java</a>";
-  ;
   private static final String UTF_8_CHARSET = "UTF-8";
   public static final String EMAIL = "edgardhernandezp@gmail.com";
 
@@ -40,28 +43,44 @@ public class Handler implements RequestHandler<Map<String, Object>, String> {
       // TODO create a response type
       HttpResponse<String> httpResponse = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
       responseBody = httpResponse.body();
+      ObjectMapper objMapper = new ObjectMapper();
+      TypeReference<HashMap<String, Object>> typeRef = new TypeReference<HashMap<String, Object>>() {
+      };
+      HashMap<String, Object> responseBodyObj = objMapper.readValue(responseBody, typeRef);
       logger.log("Response: " + responseBody + " | status code: " + httpResponse.statusCode());
 
-      if (httpResponse.statusCode() == 200) {
-        AmazonSimpleEmailService sesService = AmazonSimpleEmailServiceClientBuilder.standard().withRegion(Regions.SA_EAST_1).build();
-
-        SendEmailRequest emailRequest = new SendEmailRequest().withDestination(new Destination().withToAddresses(EMAIL)).withMessage(
-                new Message().withBody(new Body().withHtml(new Content().withCharset(UTF_8_CHARSET).withData(HTML_EMAIL_BODY)))
-                        .withSubject(new Content().withCharset(UTF_8_CHARSET).withData("Price Alert"))).withSource(EMAIL);
-        SendEmailResult sendEmailResult = sesService.sendEmail(emailRequest);
-        int httpStatusCode = sendEmailResult.getSdkHttpMetadata().getHttpStatusCode();
-        logger.log("Email Sending response status: " + httpStatusCode);
-        if (httpStatusCode == 200) { //TODO use library to checked all 2xx
+      if (httpResponse.statusCode() == 200) { //TODO use library to checked all 2xx
+        HashMap<String, Double> usdPricesPerCurrency = (HashMap<String, Double>) responseBodyObj.get("rates");
+        Map<String, String> envVars = System.getenv();
+        Double buyPrice = Double.valueOf(envVars.get("BUY_PRICE"));
+        if (buyPrice >= usdPricesPerCurrency.get("CLP")) {
+          sendEmail();
           logger.log("email sent successfully");
-        } else {
-          logger.log("error sending email");
         }
       }
     } catch (IOException | InterruptedException e) {
       logger.log(e.getMessage());
+    } catch (AmazonSimpleEmailServiceException e) {
+      logger.log("error sending email");
+      logger.log(e.getMessage());
     }
 
     return responseBody;
+  }
+
+  private void sendEmail() throws AmazonSimpleEmailServiceException {
+    AmazonSimpleEmailService sesService = AmazonSimpleEmailServiceClientBuilder.standard().withRegion(Regions.SA_EAST_1).build();
+
+    SendEmailRequest emailRequest = new SendEmailRequest().withDestination(new Destination().withToAddresses(EMAIL)).withMessage(
+            new Message().withBody(new Body().withHtml(new Content().withCharset(UTF_8_CHARSET).withData(HTML_EMAIL_BODY)))
+                    .withSubject(new Content().withCharset(UTF_8_CHARSET).withData("Price Alert"))).withSource(EMAIL);
+    SendEmailResult sendEmailResult = sesService.sendEmail(emailRequest);
+
+    //logger.log("Email Sending response status: " + httpStatusCode);
+    int httpStatusCode = sendEmailResult.getSdkHttpMetadata().getHttpStatusCode();
+    if (httpStatusCode != 200) {
+      throw new AmazonSimpleEmailServiceException("Attempt to send email failed. http status code: " + httpStatusCode);
+    }
   }
 
   private URI buildRequestUrl(LambdaLogger logger) {
