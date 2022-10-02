@@ -1,0 +1,36 @@
+service: currency-price-alert
+
+frameworkVersion: "3"
+
+provider:
+  name: aws
+  runtime: java11
+
+  stage: dev
+  region: sa-east-1
+
+  iam:
+    role:
+      statements:
+        - Effect: "Allow"
+          Action:
+            - "ses:SendEmail"
+            - "ses:SendRawEmail"
+          Resource: "*"
+
+package:
+  artifact: target/currencyalert-1.0-SNAPSHOT.jar
+
+functions:
+  fetch-usdclp:
+    handler: com.dreamseeker.fetchusdclp.Handler
+    events:
+      - eventBridge:
+          schedule: cron(0 7 * * ? *)
+
+    environment:
+      APP_ID: 833c87e7e2ca49baabf0efce616c5826
+      BASE_URL: https://openexchangerates.org/
+      BUY_PRICE: 900
+      ENDPOINT_PATH: api/latest.json
+      SYMBOLS: CLP

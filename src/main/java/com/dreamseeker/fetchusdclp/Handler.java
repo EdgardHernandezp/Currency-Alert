@@ -25,7 +25,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class Handler implements RequestHandler<Map<String, Object>, String> {
-  // TODO automate lambda upload to aws, use Serverless framework
   // TODO unit test, find the way to test locally
   // TODO format code
   private static final HttpClient httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
@@ -98,5 +97,6 @@ public class Handler implements RequestHandler<Map<String, Object>, String> {
     URI uri = URI.create(completeUrl);
     return uri;
   }
-
+        
 }
+    
