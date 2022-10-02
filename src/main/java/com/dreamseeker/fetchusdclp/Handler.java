@@ -27,10 +27,10 @@ import java.util.Map;
 public class Handler implements RequestHandler<Map<String, Object>, String> {
   // TODO automate lambda upload to aws, use Serverless framework
   // TODO unit test, find the way to test locally
+  // TODO format code
   private static final HttpClient httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
   private static final String HTML_EMAIL_BODY =
-          "<h1>Amazon SES test (AWS SDK for Java)</h1>" + "<p>This email was sent with <a href='https://aws.amazon.com/ses/'>"
-                  + "Amazon SES</a> using the <a href='https://aws.amazon.com/sdk-for-java/'>" + "AWS SDK for Java</a>";
+          "<h1>Time to buy</h1>" + "<p>Your buying price: %s</p><p>Current price: %s</p>";
   private static final String UTF_8_CHARSET = "UTF-8";
   public static final String EMAIL = "edgardhernandezp@gmail.com";
 
@@ -52,9 +52,10 @@ public class Handler implements RequestHandler<Map<String, Object>, String> {
       if (httpResponse.statusCode() == 200) { //TODO use library to checked all 2xx
         HashMap<String, Double> usdPricesPerCurrency = (HashMap<String, Double>) responseBodyObj.get("rates");
         Map<String, String> envVars = System.getenv();
-        Double buyPrice = Double.valueOf(envVars.get("BUY_PRICE"));
-        if (buyPrice >= usdPricesPerCurrency.get("CLP")) {
-          sendEmail();
+        Double buyingPrice = Double.valueOf(envVars.get("BUY_PRICE"));
+        Double currentPrice = usdPricesPerCurrency.get("CLP");
+        if (buyingPrice >= currentPrice) {
+          sendEmail(currentPrice, buyingPrice);
           logger.log("email sent successfully");
         }
       }
@@ -68,15 +69,16 @@ public class Handler implements RequestHandler<Map<String, Object>, String> {
     return responseBody;
   }
 
-  private void sendEmail() throws AmazonSimpleEmailServiceException {
+  private void sendEmail(Double currentPrice, Double buyingPrice) throws AmazonSimpleEmailServiceException {
     AmazonSimpleEmailService sesService = AmazonSimpleEmailServiceClientBuilder.standard().withRegion(Regions.SA_EAST_1).build();
+    final String emailBody = String.format(HTML_EMAIL_BODY, buyingPrice, currentPrice);
 
     SendEmailRequest emailRequest = new SendEmailRequest().withDestination(new Destination().withToAddresses(EMAIL)).withMessage(
-            new Message().withBody(new Body().withHtml(new Content().withCharset(UTF_8_CHARSET).withData(HTML_EMAIL_BODY)))
+            new Message().withBody(new Body().withHtml(new Content().withCharset(UTF_8_CHARSET).withData(emailBody)))
                     .withSubject(new Content().withCharset(UTF_8_CHARSET).withData("Price Alert"))).withSource(EMAIL);
     SendEmailResult sendEmailResult = sesService.sendEmail(emailRequest);
 
-    //logger.log("Email Sending response status: " + httpStatusCode);
+    //logger.log("Email Sending response status: " + httpStatusCode); //TODO init a static logger
     int httpStatusCode = sendEmailResult.getSdkHttpMetadata().getHttpStatusCode();
     if (httpStatusCode != 200) {
       throw new AmazonSimpleEmailServiceException("Attempt to send email failed. http status code: " + httpStatusCode);
