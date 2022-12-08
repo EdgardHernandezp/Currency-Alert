@@ -31,6 +31,6 @@ functions:
     environment:
       APP_ID: 833c87e7e2ca49baabf0efce616c5826
       BASE_URL: https://openexchangerates.org/
-      BUY_PRICE: 900
+      BUY_PRICE: 850
       ENDPOINT_PATH: api/latest.json
       SYMBOLS: CLP
