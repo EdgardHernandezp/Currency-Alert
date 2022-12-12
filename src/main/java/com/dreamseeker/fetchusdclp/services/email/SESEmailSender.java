@@ -9,17 +9,19 @@ import com.amazonaws.services.simpleemail.model.Destination;
 import com.amazonaws.services.simpleemail.model.Message;
 import com.amazonaws.services.simpleemail.model.SendEmailRequest;
 import com.amazonaws.services.simpleemail.model.SendEmailResult;
+import com.dreamseeker.fetchusdclp.utils.HttpUtils;
+import com.dreamseeker.fetchusdclp.utils.PropertiesHolder;
+import java.nio.charset.StandardCharsets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-//TODO: transfer constants to property files
 final public class SESEmailSender implements EmailSender {
-    public static final String EMAIL = "edgardhernandezp@gmail.com";
     private static final Logger logger = LoggerFactory.getLogger(SESEmailSender.class);
     private static final AmazonSimpleEmailService sesService = AmazonSimpleEmailServiceClientBuilder.standard()
             .withRegion(Regions.SA_EAST_1).build();
+    //TODO: pass to html file
     private static final String HTML_EMAIL_BODY = "<h1>Time to buy</h1>" + "<p>Your buying price: %s</p><p>Current price: %s</p>";
-    private static final String UTF_8_CHARSET = "UTF-8";
+    private static final String RECIPIENT_PROP_KEY = "notification.service.email.recipient";
 
     @Override
     public void sendEmail(double buyingPrice, double currentPrice) {
@@ -29,15 +31,18 @@ final public class SESEmailSender implements EmailSender {
 
         logger.info("Attempting to send email");
         int httpStatusCode = sendEmailResult.getSdkHttpMetadata().getHttpStatusCode();
-        if (httpStatusCode != 200)
+        if (HttpUtils.is2xx(httpStatusCode))
             logger.error("Attempt to send email failed. http status code: " + httpStatusCode);
         else
             logger.info("Email sent");
     }
 
     private SendEmailRequest generateEmailRequest(String emailBody) {
-        return new SendEmailRequest().withDestination(new Destination().withToAddresses(EMAIL)).withMessage(
-                new Message().withBody(new Body().withHtml(new Content().withCharset(UTF_8_CHARSET).withData(emailBody)))
-                        .withSubject(new Content().withCharset(UTF_8_CHARSET).withData("Price Alert"))).withSource(EMAIL);
+        final String utf8Charset = StandardCharsets.UTF_8.displayName();
+        //TODO: permit various emails and accounts with different buying/selling prices
+        final String recipientEmail = PropertiesHolder.getProperty(RECIPIENT_PROP_KEY);
+        return new SendEmailRequest().withDestination(new Destination().withToAddresses(recipientEmail)).withMessage(
+                new Message().withBody(new Body().withHtml(new Content().withCharset(utf8Charset).withData(emailBody)))
+                        .withSubject(new Content().withCharset(utf8Charset).withData("Price Alert"))).withSource(recipientEmail);
     }
 }
