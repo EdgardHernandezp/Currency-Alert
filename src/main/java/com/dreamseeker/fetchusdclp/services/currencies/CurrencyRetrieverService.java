@@ -1,7 +1,7 @@
 package com.dreamseeker.fetchusdclp.services.currencies;
 
 import com.dreamseeker.fetchusdclp.utils.EnvironmentVariablesHolder;
-import com.dreamseeker.fetchusdclp.utils.ParserUtil;
+import com.dreamseeker.fetchusdclp.utils.HttpUtils;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 //TODO: convert to interface so user can impl fetching from a different datasource
+//TODO: isolate http communication, make more generic so user can map response as it pleases
 public class CurrencyRetrieverService {
     private static final Logger logger = LoggerFactory.getLogger(CurrencyRetrieverService.class);
     private static final HttpClient httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
@@ -20,12 +21,10 @@ public class CurrencyRetrieverService {
         Optional<Response> optionalResponse = Optional.empty();
         try {
             HttpRequest request = HttpRequest.newBuilder().GET().uri(buildUri()).build();
-            //TODO: this class is generic, maybe I could returned the response as my domain class already instead of string
-            //BodyHandlers seems to be the responsible of the return type
-            HttpResponse<String> httpResponse = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<Response> httpResponse = httpClient.send(request, new CustomBodyHandler());
             logger.info("API HTTP response: \n" + httpResponse.toString());
-            if (httpResponse.statusCode() == 200) //TODO: use a library to validate all 2XX
-                optionalResponse = Optional.of(ParserUtil.parseResponse(httpResponse.body()));
+            if (HttpUtils.is2xx(httpResponse.statusCode()))
+                optionalResponse = Optional.of(httpResponse.body());
         } catch (Exception e) {
             logger.error("Error trying to retrieve currency values", e);
         }

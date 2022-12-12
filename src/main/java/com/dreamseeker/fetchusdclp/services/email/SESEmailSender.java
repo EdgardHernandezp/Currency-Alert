@@ -12,6 +12,7 @@ import com.amazonaws.services.simpleemail.model.SendEmailResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+//TODO: transfer constants to property files
 final public class SESEmailSender implements EmailSender {
     public static final String EMAIL = "edgardhernandezp@gmail.com";
     private static final Logger logger = LoggerFactory.getLogger(SESEmailSender.class);
