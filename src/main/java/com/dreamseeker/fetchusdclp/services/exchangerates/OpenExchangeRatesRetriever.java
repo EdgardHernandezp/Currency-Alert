@@ -1,4 +1,4 @@
-package com.dreamseeker.fetchusdclp.services.currencies;
+package com.dreamseeker.fetchusdclp.services.exchangerates;
 
 import com.dreamseeker.fetchusdclp.utils.EnvironmentVariablesHolder;
 import com.dreamseeker.fetchusdclp.utils.HttpUtils;
@@ -11,20 +11,20 @@ import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-//TODO: convert to interface so user can impl fetching from a different datasource
 //TODO: isolate http communication, make more generic so user can map response as it pleases
-public class CurrencyRetrieverService {
-    private static final Logger logger = LoggerFactory.getLogger(CurrencyRetrieverService.class);
+public class OpenExchangeRatesRetriever implements ExchangeRatesRetriever {
+    private static final Logger logger = LoggerFactory.getLogger(OpenExchangeRatesRetriever.class);
     private static final HttpClient httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
 
-    public Optional<Response> retrieveCurrencyValues() {
-        Optional<Response> optionalResponse = Optional.empty();
+    @Override
+    public Optional<ExchangeRateInfo> retrieveExchangeRates() {
+        Optional<ExchangeRateInfo> optionalResponse = Optional.empty();
         try {
             HttpRequest request = HttpRequest.newBuilder().GET().uri(buildUri()).build();
-            HttpResponse<Response> httpResponse = httpClient.send(request, new CustomBodyHandler());
+            HttpResponse<ExchangeRateInfo> httpResponse = httpClient.send(request, new CustomBodyHandler());
             logger.info("API HTTP response: \n" + httpResponse.toString());
             if (HttpUtils.is2xx(httpResponse.statusCode()))
-                optionalResponse = Optional.of(httpResponse.body());
+                optionalResponse = Optional.ofNullable(httpResponse.body());
         } catch (Exception e) {
             logger.error("Error trying to retrieve currency values", e);
         }
