@@ -15,13 +15,20 @@ import java.nio.charset.StandardCharsets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-final public class SESEmailSender implements EmailSender {
+public class SESEmailSender implements EmailSender {
     private static final Logger logger = LoggerFactory.getLogger(SESEmailSender.class);
-    private static final AmazonSimpleEmailService sesService = AmazonSimpleEmailServiceClientBuilder.standard()
-            .withRegion(Regions.SA_EAST_1).build();
+    private final AmazonSimpleEmailService sesService;
     //TODO: pass to html file
     private static final String HTML_EMAIL_BODY = "<h1>Time to buy</h1>" + "<p>Your buying price: %s</p><p>Current price: %s</p>";
     private static final String RECIPIENT_PROP_KEY = "notification.service.email.recipient";
+
+    public SESEmailSender() {
+        this.sesService = AmazonSimpleEmailServiceClientBuilder.standard().withRegion(Regions.SA_EAST_1).build();
+    }
+
+    public SESEmailSender(AmazonSimpleEmailService sesService) {
+        this.sesService = sesService;
+    }
 
     @Override
     public void sendEmail(double buyingPrice, double currentPrice) {
@@ -31,7 +38,7 @@ final public class SESEmailSender implements EmailSender {
 
         logger.info("Attempting to send email");
         int httpStatusCode = sendEmailResult.getSdkHttpMetadata().getHttpStatusCode();
-        if (HttpUtils.is2xx(httpStatusCode))
+        if (!HttpUtils.is2xx(httpStatusCode))
             logger.error("Attempt to send email failed. http status code: " + httpStatusCode);
         else
             logger.info("Email sent");
